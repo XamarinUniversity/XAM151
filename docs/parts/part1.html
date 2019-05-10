@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+    <title>Exercise 1: Calling a SOAP Book Service</title>
+    <link rel="stylesheet" type="text/css" href="./res/styles/normalize.css">
+    <link rel="stylesheet" type="text/css" href="./res/styles/prettify.css" />
+    <link rel="stylesheet" type="text/css" href="./res/styles/styles.css">
+</head>
+
+<body>
+    <!-- Use the same title as the StartHere -->
+    <header>Consuming SOAP-based Web Services</header>
+
+    <section id="main">
+
+        <h1 id="page-title"></h1>
+        <h2>Duration</h2>
+        <p>45 minutes</p>
+
+        <h2>Goals</h2>
+        <p>
+            In this exercise, you will modify a basic Xamarin.Forms application shell to include support to hit an existing SOAP-based service and manipulate the returned data. The UI has already been created, you will be filling in the web service access code.
+        </p>
+        <img src="./res/images/lab-final.png" />
+
+        <h2>Exercise Overview</h2>
+        <p>
+            Try to complete the exercise by using the following high-level instructions, and going into the step-by-step instructions if you need some guidance. You will be using a starter solution located in <b>Exercise 1</b>. This solution has projects for Xamarin.iOS, Xamarin.Android, and Windows UWP. 
+        </p>
+        <p>
+            Your goal is to implement the four operations (Create, Get, Update and Delete) operations in the <code>BookManager</code> class in the <b>Data</b> folder of the project. There are <code>//TODO</code> comment markers in each method. You will <em>not</em> need to make any other changes to the project.
+        </p>
+        <p>
+            The Book SOAP service is located at <a href="http://xam150.azurewebsites.net/services/books.svc">http://xam150.azurewebsites.net/services/books.svc</a>. Normally, you would create a client proxy using the <code>SLSvcUtil.exe</code> tool from the Silverlight SDK, but this step has already been done for you and the proxy is already in the starter project.
+        </p>
+<p>
+<a href="#" onclick="toggleBlock(this, 'slsvcutil', 'How do I generate a WCF proxy from WSDL?', 'Hide'); return false;" class="uiitem">How do I generate a WCF proxy from WSDL?</a>
+<div class="indent-none wsblock" id="slsvcutil" style="display:none;">
+<div class="wsitem">
+    <b>How do I generate a WCF proxy from WSDL?</b>
+    <p>
+        Typically, the first step we will do when building a mobile client is to generate a WSDL proxy. Xamarin currently supports the same WCF features as Silverlight. To generate the proxy, we use the Silverlight SDK tool <b>SLSvcUtil.exe</b> on a Windows machine to process the WSDL for the SOAP service and generate a client proxy, along with the data contract definitions we need to invoke the service methods. Then we would add this generated code to our project. This step requires Windows and the Silverlight SDK. Once it has been generated, you can do your development in any supported environment.
+    </p>
+    <p>
+        In this exercise, the proxy has been created for you to save time, and to allow students who do not have access to Windows or the Silverlight SDK to continue forward with the exercise. However, if you wanted to create the proxy on your own, you would follow these steps:
+    </p>
+    <ol>
+        <li>
+          Switch to a Windows machine and run the <b>SLSvcUtil.exe</b> command-line tool against the service endpoint (<code>http://xam150.azurewebsites.net/services/books.svc</code>). The tool is, by default, found in the <code>C:\Program Files (x86)\Microsoft SDKs\Silverlight\v5.0\Tools</code> folder.
+        </li>
+        <li>
+          You will want to run the tool from a writable folder, or make sure to specify the output file location (<code>/out:</code> parameter). The tool is standalone so you can copy it into a known location along your path, or put the SDK folder in your path as well.
+        </li>
+
+        <img class="indent-none" src="./res/images/SLSvcUtil.png" />
+        <li>
+          This will generate two files by default, a C# source file (<b>Books.cs</b>) and a configuration file (<b>ServiceReferences.ClientConfig</b>) which you can delete. We only need the C# source file.
+        </li>
+    </ol>
+</div></div>
+</p>
+        <p>
+            Here are the valid operations you can perform from the proxy:
+            <ol>
+                <li>
+                    Call <code>LoginAsync</code> to get a token (if you don't pass this token to the other methods, you'll get an Unauthorized status returned). This will create a unique session for your application and will populate the session with a few default books. The first <a href="#login">detail step below</a> has a walk through for this step.
+                </li>
+                <li>
+                    All other calls need to add the string-based token (with no quotes) as the HTTP &quot;Authorization&quot; header. This is what identifies you to the service. This is a bit complicated to do, so follow the instructions <a href="#authorize">described below</a>.
+                </li>
+                <li>Call <code>GetBooksAsync</code> to get a list of the books in your session. This will return an array of <code>book</code> objects which look something like:
+<pre class="prettyprint codeblock">
+public class Book
+{
+    public string[] Authors { get; set; }
+    public string Genre { get; set; }
+    public string ISBN { get; set; }
+    public System.DateTime PublishDate { get; set; }
+    public string Title { get; set; }
+}
+</pre>
+                </li>
+                <li>
+                    Call <code>UpdateBookAsync</code> to update a book.
+                </li>
+                <li>
+                    Call <code>DeleteBookAsync</code> to delete a book, passing the ISBN code to identify the book.
+                </li>
+                <li>
+                    Call <code>CreateBookAsync</code> to add a new book, passing the book object as the parameter; note that the ISBN code must be empty and the response will include the book object with the ISBN key filled in.
+                </li>
+                <li>
+                    Test each of these operations using the pre-built UI.
+                </li>
+            </ol>
+        </p>
+
+        <div class="hintblock">
+            <strong>Tip:</strong> If you are doing this exercise in a live class, make sure to take advantage of the instructor if you run into trouble or have any questions!</div>
+
+        <h1>Steps</h1>
+        <h2>(Optional) Examine the existing starter solution</h2>
+        <p>
+            You will be modifying an existing Xamarin.Forms application, so as a first step, let's walk through the solution structure so you have a basic idea about the application.
+        </p>
+        <ol>
+            <li>
+                Open the starter project contained in the <b>Part01 Resources</b> folder and examine the project structure. It has four projects in the solution:
+                <table class="grid">
+                    <tr>
+                        <th>Project</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td>BookClient</td>
+                        <td>
+                            This is the PCL which contains all the code to create and process the UI for the application. You will do all of your work in this project. There are two <code>Page</code> classes in the project, one for the main view which shows a <code>ListView</code> for the books, and a second to add or edit a specific book. The <b>Data</b> folder has the two files you are primarily interested in. 
+                            <ul class="indent-none">
+                                <li>
+                                    <code>BookManager</code> is a class you will modify in order to perform each operation with the SOAP service.
+                                </li>
+                                <li>
+                                    <b>Books.cs</b> file is the generated proxy file which you can look at. This contains the above definition of the <code>Book</code> as well as the client proxy to access all the SOAP operations.
+                                </li>
+                            </ul>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>BookClient.Droid</td>
+                        <td>
+                            This is the Android platform-specific head project. </td>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>BookClient.iOS</td>
+                        <td>This is the iOS platform-specific head project.</td>
+                    </tr>
+                    <tr>
+                        <td>BookClient.UWP</td>
+                        <td>This is the Windows UWP platform-specific head project. You can use this project if you are on Windows 10 and have the UWP SDK.</td>
+                    </tr>
+                </table>
+                <br />
+            </li>
+        </ol>
+        
+        <h2 id="login">Add support to login to the service</h2>
+        <p>
+        The service requires you login first and get an authentication token. For simplicity, we aren't using any credentials or certificates - but you must call a specific endpoint first and then take the result of that and return it on each subsequent request in the HTTP header.
+        </p>
+        <ol>
+            <li>
+                Open the <code>BookManager</code> class in the <b>Data</b> folder in the <b>BookClient</b> project. This is the PCL project which has all our shared code. This is where all our work will be performed.
+            </li>
+            <li>
+                First, add a constant string to the class to hit the base URL. The value for the string should be <code>&quot;http://xam150.azurewebsites.net/services/books.svc&quot;</code>.
+            </li>
+            <li>
+                Since we will need to do this authentication once, but then add the token into the header for all other request, we will create a single method to <em>create</em> our <code>BooksClient</code> object to access the service.
+            </li>
+            <li>
+                Create a new method in the class named <code>GetClient</code> which returns a <code>BooksClient</code>.
+            </li>
+            <li>
+                In the method, create a new <code>BooksClient</code> instance. Since this is a mobile application which does not have an application configuration file, we will need to use a constructor that takes the binding and endpoint address.
+                  <ul class="indent-none">
+                    <li>
+                      Pass a new instance of a <code>BasicHttpBinding</code> class as the binding. This is the only binding available to Xamarin applications. You will need to add a <code>using</code> statement to <code>System.ServiceModel</code>.
+                    </li>
+                    <li>
+                      Pass your URL constant wrapped in an <code>EndpointAddress</code> object as the endpoint.
+                    </li>
+                  </ul>
+            </li>
+          </ol>
+
+<p><a href="#" onclick="toggleCode(this,'BooksClient');return false;" class="uiitem">Show Code</a><div class="indent-large" id="BooksClient" style="display:none;">
+<pre class="prettyprint">
+public class BookManager
+{
+    const string Url = "http://xam150.azurewebsites.net/services/books.svc";
+
+    private BooksClient GetClient()
+    {
+        return new BooksClient(
+            new BasicHttpBinding(), new EndpointAddress(Url));
+    }
+    ...
+}
+</pre></div></p>
+
+          <ol start="6">
+            <li>
+                Add a new private field of type <code>string</code> to hold the authorization token. The completed lab names this field <b>authorizationKey</b>.
+            </li>
+            <li>
+              Add a new method named <code>Login</code> which returns a <code>Task&lt;bool></code>.
+            </li>
+          </ol>
+          <p>
+            The WCF proxy uses the event asynchronous pattern which involves wiring up an event completion handler and then calling a method to kick off the operation. The operations are all asynchronous and the final result is reported back on a worker thread through the event handler. This is an older technique which was created prior to the Task Parallel Framework and <code>async / await</code> keywords in C# 5. However, it turns out we can easily turn these methods into <code>Task</code>-based approaches to make them easier to consume in our mobile app. As an example, let's do this for the Login.
+          </p>
+<pre class="prettyprint codeblock">
+string authorizationKey;
+...
+public Task&lt;bool> Login()
+{
+    var tcs = new TaskCompletionSource&lt;bool>();
+
+    var client = GetClient();
+
+    client.LoginCompleted += (sender, e) => {
+        if (e.Cancelled) {
+            tcs.SetCanceled();
+        } else if (e.Error != null) {
+            tcs.SetException(e.Error);
+        } else {
+            authorizationKey = e.Result;
+            tcs.SetResult(!string.IsNullOrEmpty(authorizationKey));
+        }
+    };
+
+    client.LoginAsync();
+
+    return tcs.Task;
+}
+</pre>
+        <p>
+          The key to this approach is the <code>TaskCompletionSource</code> class. You don't use this class very often, but it's quite handy in this specific case where we are converting an older asynchronous style into the more modern Task-based approach.
+        </p>
+        <p>
+          First, we create a <code>TaskCompletionSource&lt;T></code> where <code>T</code> is the expected result from the asynchronous operation. Then we call our <code>GetClient</code> method to get the configured <code>BooksClient</code> object. We want to use the <code>LoginAsync</code> method, so first we wire up to the <code>LoginCompleted</code> event and add a handler to process the result. Then we call the <code>LoginAsync</code> method to kick off the operation. Finally, we return the <code>Task</code> property of the <code>TaskCompletionSource</code>.
+        </p>
+        <p>
+          In the completion event handler, we examine the passed event arguments to determine if the method was canceled, failed or was successful and trigger the appropriate flags on the <code>TaskCompletionSource</code>. If it was successful, we store off the authorization key and set the result of the completion source to a true/false value.
+        </p>
+        <p>
+          The client usage for this method is to use <code>async / await</code> just as they would on any <code>Task</code> based operation, the <code>TaskCompletionSource</code> provides the task mechanics without a real thread, instead relying on the WCF proxy thread to do the work. All of our methods will be implemented using this exact same pattern.
+        </p>
+
+        <h2 id="authorize">Add the authentication token to the HTTP header</h2>
+        <p>
+          The next step is to create a shared method which will add the authorization key we just obtained to the header collection of the WCF proxy when we call any of the other methods. We'll do this by calling a method before all our other calls to add the header information.
+        </p>
+        <ol>
+          <li>
+            Add a new private method to the class named <code>AddHeader</code>. It should return a <code>Task</code> so we can retrieve any errors from the asynchronous Login call.
+          </li>  
+          <li>
+               If the authorization field is empty or blank, then call the <code>Login</code> method you just created to get the authentication token. Use <code>async / await</code> to do this without blocking the UI thread.
+          </li>
+          <li>
+            Next, we need to take the string and add it as header to any outgoing request. In WCF, this is done by modifying the <code>OperationContext</code> which is a static class that is valid while you are processing a method call. We'll just assume one is present in this method and then make sure that all our actual client methods create one before calling this. Use the following code, you will need to add the <code>System.ServiceModel.Channels</code> namespace (just use ALT+ENTER on the unknown classes in red to get the IDE to add the namespace for you).
+          </li>
+        </ol>
+
+<pre class="prettyprint codeblock">
+private async Task AddHeader()
+{
+    if (string.IsNullOrEmpty(authorizationKey)) {
+        await Login();
+    }
+
+    // Add a SOAP Header to an outgoing request
+    MessageHeader header = MessageHeader.CreateHeader(
+        "Authorization", "", authorizationKey);
+    OperationContext.Current.OutgoingMessageHeaders.Add(header);
+
+    // Add the HTTP header version
+    HttpRequestMessageProperty httpRequestProperty = new HttpRequestMessageProperty();
+    httpRequestProperty.Headers["Authorization"] = authorizationKey;
+    OperationContext.Current
+        .OutgoingMessageProperties[HttpRequestMessageProperty.Name] = httpRequestProperty;
+}
+</pre>
+      <p>
+        This code adds the header into two areas. The first block adds the header into the SOAP headers - this is in the XML envelope we discussed in the lecture and this is often where any out-of-band data would be placed. The second block adds it to the HTTP headers collection which is where our server expects it to be. We've included the first block just so you can see how to affect the SOAP headers, but it's technically not necessary for our service here. (Although it won't hurt to include it either - the service just won't look at it).
+      </p>
+
+
+        <h2>Get the list of books</h2>
+        <p>
+        Now that we can authenticate to the service, let's add our code to retrieve the books from the base Url.
+        </p>
+        <ol>
+            <li>
+                In the <b>BookManager.cs</b> file, locate the method named <code>GetAll</code> which returns a <code>Task&lt;IEnumerable&lt;Book>></code> and delete the current implementation.
+            </li>
+            <li>
+              Create a <code>TaskCompletionSource&lt;IEnumerable&lt;Book>></code> to hold the result.
+            </li>
+            <li>
+                Use your <code>GetClient</code> method to retrieve a <code>BooksClient</code> to work with.
+            </li>
+            <li>
+                Use <code>GetBooksAsync</code> method on the proxy and the <code>GetBooksCompleted</code> event to process the return result.
+            </li>
+            <li>
+               The code structure should look almost identical to the <code>Login</code> method - returning the <code>Task</code> of the <code>TaskCompletionSource</code>. Remember to mark the method as <code>async</code>.
+            </li>
+            <li>
+              Once you've got that in place, we need to add our header information and create an <code>OperationContext</code> to work with (remember we said we'd need that). We do this by creating a <code>OperationContextScope</code> for the BooksClient, and this must be disposed when we are finished with it. Since this is a bit confusing, here's the code you will need to add - fill in the TODO below:
+            </li>
+        </ol>
+
+<pre class="codeblock prettyprint">
+public <span class="highlight">async</span> Task&lt;IEnumerable&lt;Book>> GetAll()
+{
+    var tcs = new TaskCompletionSource&lt;IEnumerable&lt;Book>>();
+    var client = GetClient();
+
+    <span class="highlight">using (var context = new OperationContextScope(client.InnerChannel)) {
+        await AddHeader();</span>
+
+        // TODO: Your code to call the service goes here - 
+        // use the client.GetBooksAsync method and GetBooksCompleted event.
+        // structure it like you did Login.
+
+        <span class="highlight">return await tcs.Task;
+    }</span>
+}
+</pre>
+
+        <ol start="7">
+            <li>
+                Run the application and press the Refresh icon in the toolbar (at the top or bottom depending on the platform, but the icon looks like a pair of arrows in a circle).
+            </li>
+            <li>
+                After a few seconds, the app should load a set of existing books and display them. Debug through the application if you do not see the data get loaded. Verify it is properly calling <b>Login</b> and then passing the authorization token into the <code>GetBooksAsync</code> call to retrieve the books.
+            </li>
+        </ol>
+
+<p><a href="#" onclick="toggleCode(this,'getBooks');return false;" class="uiitem">Show Code</a><div class="indent-large" id="getBooks" style="display:none;">
+<pre class="prettyprint">
+public async Task&lt;IEnumerable&lt;Book>> GetAll()
+{
+    var tcs = new TaskCompletionSource&lt;IEnumerable&lt;Book>>();
+
+    var client = GetClient();
+
+    using (var context = new OperationContextScope(client.InnerChannel)) {
+        await AddHeader();
+
+        client.GetBooksCompleted += (sender, e) => {
+            if (e.Cancelled) {
+                tcs.SetCanceled();
+            } else if (e.Error != null) {
+                tcs.SetException(e.Error);
+            } else {
+                tcs.SetResult(e.Result);
+            }
+        };
+
+        client.GetBooksAsync();
+
+        return await tcs.Task;
+    }
+}
+</pre></div></p>
+
+        <div class="hintblock">
+            The remainder of the methods follow the same style as what you have done already and are mostly copy/paste from the existing <code>GetAll</code> method you just created. Feel free to open the completed solution to walk through the code, or you can continue adding support for Add, Update and Delete if you have time remaining in the exercise.
+        </div>
+
+
+        <h2>Add a new book</h2>
+        <p>
+        We are now displaying the books, let's add support to <em>Add</em> a new book using <b>CreateBookAsync</b>.
+        </p>
+        <ol>
+            <li>
+                Open the <code>BookManager</code> code. Locate the method named <code>Add</code> which takes a title, author and genre and returns a <code>Task&lt;Book></code>.
+            </li>
+            <li>
+                In the method, create a new <code>Book</code> object and populate the properties with the passed data:
+                <ul class="indent-none">
+                    <li>Set the ISBN property to an empty string.</li>
+                    <li>Make sure to create a new <code>string[]</code> to hold the passed Author (we only allow a single author here for simplicity, but you could expand this code if you like to allow for multiples using a comma separator or some other convention).</li>
+                    <li>Set the <code>PublishDate</code> to <code>DateTime.Now</code>.</li>
+                </ul>
+            </li>
+            <li>
+              Get a client from your <code>GetClient</code> method.
+            </li>
+            <li>
+              Use the <code>CreateBookAsync</code> method and the <code>CreateBookCompleted</code> event to create the new book.
+            </li>  
+            <li>
+              Follow the structure of the <code>GetAll</code> method - make sure to call <code>AddHeader</code> and to wrap the call in an <code>OperationContextScope</code> block to pass the headers along to the service. In this case, your <code>TaskCompletionSource</code> should return a <code>book</code>. Remember to mark the method as async.
+            </li>  
+            <li>
+                Build and run the application to try the logic - just press the Add button (looks like a [+] in the toolbar). Debug through the logic if it's not working properly. When you press the <b>Add Book</b> button, it should add the book and return you back to the main screen.
+            </li>
+        
+        </ol>
+
+<p><a href="#" onclick="toggleCode(this,'addBook1');return false;" class="uiitem">Show Code</a><div class="indent-large" id="addBook1" style="display:none;">
+<pre class="prettyprint">
+public async Task&lt;Book> Add(string title, string author, string genre)
+{
+    var tcs = new TaskCompletionSource&lt;Book>();
+
+    var client = GetClient();
+
+    using (var context = new OperationContextScope(client.InnerChannel)) {
+        await AddHeader();
+
+        var book = new Book() {
+            Title = title,
+            Authors = new[] { author },
+            ISBN = string.Empty,
+            Genre = genre,
+            PublishDate = DateTime.Now.Date,
+        };
+
+        client.CreateBookCompleted += (sender, e) => 
+        {
+            if (e.Cancelled) {
+                tcs.SetCanceled();
+            } else if (e.Error != null) {
+                tcs.SetException(e.Error);
+            } else {
+                tcs.SetResult(e.Result.Book);
+            }
+        };
+
+        client.CreateBookAsync(book);
+
+        return await tcs.Task;
+    }
+}
+</pre></div></p>
+
+        <h2>Update an existing book</h2>
+        <p>
+        We are now able to display and add new books, let's add the code necessary to update an existing book. 
+        </p>
+        <ol>
+            <li>
+                Open the <code>BookManager</code> class and locate the method named <code>Update</code> which takes a <code>Book</code> and returns a <code>Task</code>.
+            </li>
+            <li>
+                In the method implementation, get a new client and use the <code>UpdateBookAsync</code> method to send a book to service. Use the <code>UpdateBookCompleted</code> event to catch the completion.
+            </li>
+            <li>
+                In this case, we don't have an explicit return type - but we want to return <code>Task</code> so that exceptions are properly returned back to the caller, and so the caller can use the <code>await</code> keyword to pause the progress of the method until the asynchronous method is finished.
+            </li>
+            <li>
+              However, there isn't a non-generic version of <code>TaskCompletionSource</code>, so have it return a <code>string</code> which is the response message from the service (<code>e.Result.Message</code>). Since <code>Task&lt;TResult></code> derives from <code>Task</code>, it is acceptable to return this and the client is unaware there is a bit of data tagged with it. <b>Note:</b> we could just as easily use a boolean value. 
+            </li>
+        </ol>
+<p><a href="#" onclick="toggleCode(this,'updateBook1');return false;" class="uiitem">Show Code</a><div class="indent-large" id="updateBook1" style="display:none;">
+<pre class="prettyprint">
+public <span class="highlight">async</span> Task Update(Book book)
+{
+    var tcs = new TaskCompletionSource&lt;string>();
+
+    var client = GetClient();
+
+    using (var context = new OperationContextScope(client.InnerChannel)) {
+
+        await AddHeader();
+
+        client.UpdateBookCompleted += (sender, e) => 
+        {
+            if (e.Cancelled) {
+                tcs.SetCanceled();
+            } else if (e.Error != null) {
+                tcs.SetException(e.Error);
+            } else {
+                tcs.SetResult(e.Result.Message);
+            }
+        };
+
+        client.UpdateBookAsync(book);
+
+        await tcs.Task;
+    }
+}
+</pre></div></p>
+
+        <h2>Delete a book</h2>
+        <p>
+            The final operation we have is Delete. The code should be structured just like the update case.
+        </p>
+        <ol>
+            <li>
+                Open the <code>BookManager</code> class and find the method named <code>Delete</code> which takes a string and returns a <code>Task</code>.
+            </li>
+            <li>
+                In the method body, get a new client and use the <code>DeleteAsync</code> method and the <code>DeleteBookCompleted</code> event handler. The response returns a status message just like the update did.
+            </li>
+            <li>
+                Add a call to the new delete method into the <code>OnDeleteBook</code> method in <b>MainPage.xaml.cs</b>. There's a comment marker where the code should go.
+            </li>
+            <li>
+                Finally, make sure to remove the book from the <b>books</b> collection when the web call is complete to update the UI.
+            </li>
+            <li>
+                Run the application to test the delete logic - you can get to the functionality by swiping to the left on iOS, or by performing a long-click on Android and Windows (press + hold).
+            </li>
+        </ol>
+
+<p><a href="#" onclick="toggleCode(this,'deleteBook');return false;" class="uiitem">Show Code</a><div class="indent-large" id="deleteBook" style="display:none;">
+<pre class="prettyprint">
+public async Task Delete(string isbn)
+{
+    var tcs = new TaskCompletionSource&lt;string>();
+
+    var client = GetClient();
+
+    using (new OperationContextScope(client.InnerChannel)) {
+        await AddHeader();
+
+        client.DeleteBookCompleted += (sender, e) => {
+            if (e.Cancelled) {
+                tcs.SetCanceled();
+            } else if (e.Error != null) {
+                tcs.SetException(e.Error);
+            } else {
+                tcs.SetResult(e.Result.Message);
+            }
+        };
+
+        client.DeleteBookAsync(isbn);
+
+        await tcs.Task;
+    }
+}
+</pre></div></p>
+
+        <h1>Summary</h1>
+        <p>
+            Congratulations! You have successfully utilized a SOAP service within your Xamarin application to work with a set of books.
+        <div class="align-right">
+            <a href="../Start%20Here.html">Go Back</a>
+        </div>
+    </section>
+
+    <script src="./res/js/jquery.min.js"></script>
+    <script src="./res/js/prettify.js"></script>
+    <script src="./res/js/script.js"></script>
+
+    <footer>Copyright (C) 2018 Xamarin Inc., Microsoft.</footer>
+</body>
+</html>
